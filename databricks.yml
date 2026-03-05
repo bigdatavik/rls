@@ -1,0 +1,93 @@
+# RLS standalone project — deploy to FEVM_aws workspace
+# Use: databricks bundle deploy -t staging  (or -t prod)
+
+bundle:
+  name: rls
+
+workspace:
+  host: https://fevm-serverless-mwelio-humana.cloud.databricks.com
+  profile: FEVM_aws
+
+variables:
+  environment:
+    description: "Environment (staging or prod)"
+    default: staging
+  catalog:
+    description: "Unity Catalog name (notebooks use humana_payer)"
+    default: humana_payer
+
+targets:
+  staging:
+    mode: development
+    default: true
+    variables:
+      environment: staging
+    workspace:
+      host: https://fevm-serverless-mwelio-humana.cloud.databricks.com
+      profile: FEVM_aws
+
+  prod:
+    mode: production
+    variables:
+      environment: prod
+    workspace:
+      host: https://fevm-serverless-mwelio-humana.cloud.databricks.com
+      profile: FEVM_aws
+
+resources:
+  jobs:
+    # Demo order: 01 (legacy) -> 02 (simple) -> 03 (mapping table) -> 04 (ABAC) -> 04b (ABAC Option B)
+    rls_01_legacy:
+      name: rls_01_legacy_${var.environment}
+      parameters:
+        - name: environment
+          default: ${var.environment}
+      tasks:
+        - task_key: run_rls_01
+          notebook_task:
+            notebook_path: ./rls/01_rls_legacy_secured_views.py
+          timeout_seconds: 600
+
+    rls_02_manual_simple:
+      name: rls_02_simple_${var.environment}
+      parameters:
+        - name: environment
+          default: ${var.environment}
+      tasks:
+        - task_key: run_rls_02
+          notebook_task:
+            notebook_path: ./rls/02_rls_manual_simple_udf.py
+          timeout_seconds: 600
+
+    rls_03_manual_mapping:
+      name: rls_03_mapping_${var.environment}
+      parameters:
+        - name: environment
+          default: ${var.environment}
+      tasks:
+        - task_key: run_rls_03
+          notebook_task:
+            notebook_path: ./rls/03_rls_manual_mapping_table.py
+          timeout_seconds: 600
+
+    rls_04_abac:
+      name: rls_04_abac_${var.environment}
+      parameters:
+        - name: environment
+          default: ${var.environment}
+      tasks:
+        - task_key: run_rls_04
+          notebook_task:
+            notebook_path: ./rls/04_rls_abac_governed_tags.py
+          timeout_seconds: 600
+
+    rls_04b_abac_option_b:
+      name: rls_04b_option_b_${var.environment}
+      parameters:
+        - name: environment
+          default: ${var.environment}
+      tasks:
+        - task_key: run_rls_04b
+          notebook_task:
+            notebook_path: ./rls/04b_rls_abac_option_b.py
+          timeout_seconds: 600
