@@ -102,7 +102,6 @@
 
 # MAGIC %sql
 # MAGIC ALTER TABLE humana_payer.rls_abac_option_b.sample_data
-# MAGIC -- Tag identifies the column for the policy; row values (Engineering, Marketing, etc.) are passed to fn_division_filter
 # MAGIC   ALTER COLUMN division SET TAGS ('division' = 'Engineering');
 
 # COMMAND ----------
@@ -131,80 +130,14 @@
 # MAGIC - **Scope:** catalog humana_payer, schema **rls_abac_option_b**.  
 # MAGIC - **Purpose:** Hide table rows.  
 # MAGIC - **Conditions:** Select function **humana_payer.rls_abac_option_b.fn_division_filter**.  
-# MAGIC - **Function parameters:** Map parameter `division` to the **column** that has the governed tag `division` (e.g. tag value Engineering). The system must pass that column's **row value** (Engineering, Marketing, Sales, etc.) to the function for each row — not the literal "Engineering". If only one division works, the UI may be passing the tag value; fix by ensuring the mapping uses the column's cell value. Governed tag allowed values (notebook 04) must include Marketing, Engineering, Sales, Finance, Home.  
+# MAGIC - **Function parameters:** Map column by tag → division : **Engineering** (matches column tag above).
 # MAGIC
 # MAGIC Keep **division_access** in sync with your groups; then you never add more UDFs or policies for new divisions.
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Step 6: Debug (if marketing user still sees all rows)
-# MAGIC
-# MAGIC Run the cell below **as the marketing user** (same session they use to query sample_data). This tests the UDF directly with each division value; the policy uses the same UDF with the row's division value.
-# MAGIC
-# MAGIC - **Expected for marketing-only user:** `fn_division_filter('Marketing')` = true, all others = false.
-# MAGIC - If you get that, the UDF and division_access are correct; the issue is the **policy** (parameter binding, scope, or "Apply to tables that have specific tags").
-# MAGIC - If `fn_division_filter('Engineering')` (or others) is true, fix **division_access** so principal `marketing` has only division `Marketing`.
-
-# COMMAND ----------
-
-# MAGIC %sql
-# MAGIC -- Run as the marketing user. Expected: only Marketing = true.
-# MAGIC SELECT 'Marketing' AS division, humana_payer.rls_abac_option_b.fn_division_filter('Marketing') AS allowed
-# MAGIC UNION ALL SELECT 'Engineering', humana_payer.rls_abac_option_b.fn_division_filter('Engineering')
-# MAGIC UNION ALL SELECT 'Sales', humana_payer.rls_abac_option_b.fn_division_filter('Sales')
-# MAGIC UNION ALL SELECT 'Finance', humana_payer.rls_abac_option_b.fn_division_filter('Finance')
-# MAGIC UNION ALL SELECT 'Home', humana_payer.rls_abac_option_b.fn_division_filter('Home');
-
-# COMMAND ----------
-
-# MAGIC %sql
-# MAGIC -- Who is running: must be the marketing user (e.g. animesh.jha@databricks.com). If you see an admin email here, run this notebook logged in as the marketing user.
-# MAGIC SELECT current_user() AS running_as;
-
-# COMMAND ----------
-
-# MAGIC %sql
-# MAGIC -- Group membership for current user. For marketing-only user, only in_marketing should be true. If others are true, that user is in multiple groups (or account-level parents).
-# MAGIC SELECT
-# MAGIC   is_member('marketing')   AS in_marketing,
-# MAGIC   is_member('sales')      AS in_sales,
-# MAGIC   is_member('engineering') AS in_engineering,
-# MAGIC   is_member('financee')   AS in_financee,
-# MAGIC   is_member('home')      AS in_home;
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC **Recreate UDF** — Run the cell below to refresh `fn_division_filter` (e.g. if the filter returns wrong results). No need to recreate the policy. Assumptions: `division_access` has group-based rows only (principal = group name, e.g. marketing, sales); principal can also be a user email for direct access.
-
-# COMMAND ----------
-
-# MAGIC %sql
-# MAGIC -- Recreate UDF: principal = user email (current_user()) OR workspace group (is_member(principal)); division_access has one row per (principal, division).
-# MAGIC CREATE OR REPLACE FUNCTION humana_payer.rls_abac_option_b.fn_division_filter(division STRING)
-# MAGIC RETURNS BOOLEAN
-# MAGIC LANGUAGE SQL
-# MAGIC RETURN EXISTS (
-# MAGIC   SELECT 1 FROM humana_payer.rls_abac_option_b.division_access a
-# MAGIC   WHERE (a.principal = current_user() OR is_member(a.principal))
-# MAGIC     AND a.division = division
-# MAGIC );
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC **If UDF returns correct (only Marketing = true) but filtered query still shows all rows:**
-# MAGIC
-# MAGIC 1. **Compute:** Row filter policies need **DBR 16.4+** or **serverless** SQL warehouse. Older compute can skip ABAC and show all rows. Check cluster/warehouse runtime.
-# MAGIC 2. **"Apply to tables that have specific tags":** If this is **checked**, the policy only applies to tables (or columns) that have the chosen tag. If `sample_data` or its columns don't satisfy that, the policy won't apply and the user sees all rows. Either **uncheck** that option so the policy applies by scope only, or ensure the table/column has the required tag.
-# MAGIC 3. **Scope:** Policy scope must include `humana_payer.rls_abac_option_b.sample_data` (or the schema so this table is included).
-# MAGIC 4. **Group name:** "Applied to" must match the workspace group **exactly** (e.g. `marketing` lowercase). Check in **Workspace → Groups** and use the same spelling/case in the policy.
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ## Step 7: Verify
+# MAGIC ## Step 6: Verify
 # MAGIC
 # MAGIC **Workspace admins:** If you added yourself to the policy's **Except for** (e.g. "workspace admins"), you should see all rows without needing any `division_access` entries. If you still see no rows, check that (1) your user is in the exact group listed in **Except for** (some workspaces use "admins" or a custom group name), and (2) the policy is saved and the table scope is `humana_payer.rls_abac_option_b.sample_data`.
 # MAGIC
