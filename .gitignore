@@ -4,3 +4,5 @@ MY_ENVIRONMENT.md
 __pycache__/
 *.pyc
 .DS_Store
+.vscode/
+.databricks/
