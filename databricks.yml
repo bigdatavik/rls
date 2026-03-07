@@ -1,4 +1,4 @@
-# RLS standalone project — deploy to FEVM_aws workspace
+# RLS standalone project — deploy to fevm workspace
 # Use: databricks bundle deploy -t staging  (or -t prod)
 
 bundle:
@@ -6,7 +6,7 @@ bundle:
 
 workspace:
   host: https://fevm-serverless-mwelio-humana.cloud.databricks.com
-  profile: FEVM_aws
+  profile: fevm
 
 variables:
   environment:
@@ -24,7 +24,7 @@ targets:
       environment: staging
     workspace:
       host: https://fevm-serverless-mwelio-humana.cloud.databricks.com
-      profile: FEVM_aws
+      profile: fevm
 
   prod:
     mode: production
@@ -32,7 +32,7 @@ targets:
       environment: prod
     workspace:
       host: https://fevm-serverless-mwelio-humana.cloud.databricks.com
-      profile: FEVM_aws
+      profile: fevm
 
 resources:
   jobs:
